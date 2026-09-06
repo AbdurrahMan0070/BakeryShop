@@ -6,9 +6,9 @@
   "scripts": {
     "install:all": "cd bakery-backend && npm install && cd ../bakery-frontend && npm install",
     "build": "npm run build:backend && npm run build:frontend",
-    "build:backend": "cd bakery-backend && npm run vercel-build",
+    "build:backend": "cd bakery-backend && npx prisma generate && npm run build",
     "build:frontend": "cd bakery-frontend && npm run build",
-    "vercel-build": "npm run install:all && npm run build",
+    "vercel-build": "cd bakery-backend && npm install && npx prisma generate && npm run build && cd ../bakery-frontend && npm install && npm run build",
     "dev:backend": "cd bakery-backend && npm run start:dev",
     "dev:frontend": "cd bakery-frontend && npm run dev",
     "start": "cd bakery-backend && npm run start:prod"

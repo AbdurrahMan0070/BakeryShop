@@ -32,10 +32,10 @@ Choose one free database provider:
 4. **Import** your repository: `AbdurrahMan0070/BakeryShop`
 5. **Configure**:
    - Project Name: `bakery-shop` (or any name you like)
-   - Framework Preset: **Other**
+   - Framework Preset: **Vite**
    - Root Directory: **Leave as `./`** (root of repository)
-   - Build Command: `npm run vercel-build`
-   - Output Directory: Leave empty
+   - Build Command: Will use vercel.json configuration
+   - Output Directory: `bakery-frontend/dist`
    
 6. **Add Environment Variables**:
    ```
