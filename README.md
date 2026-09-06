@@ -300,13 +300,15 @@ All endpoints require `Authorization: Bearer <token>` header except authenticati
 
 ## 🌐 Deployment
 
-This application is optimized for deployment as a monorepo on Vercel. See **SINGLE_DEPLOY.md** for detailed deployment instructions.
+This application is deployed as two separate projects on Vercel for maximum reliability. See **DEPLOY.md** for step-by-step deployment instructions.
 
-Quick deployment:
-1. Push to GitHub
-2. Import to Vercel
-3. Add environment variables
-4. Deploy!
+Quick overview:
+1. Deploy backend → Get backend URL
+2. Deploy frontend → Point it to backend URL
+3. Run database migrations
+4. Done!
+
+Both projects auto-deploy when you push to GitHub.
 
 ---
 
