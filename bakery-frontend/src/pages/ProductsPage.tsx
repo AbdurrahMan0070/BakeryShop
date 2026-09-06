@@ -74,7 +74,7 @@ function ImageUploadZone({
   const imgSrc = displaySrc
     ? displaySrc.startsWith('data:') || displaySrc.startsWith('blob:')
       ? displaySrc
-      : `http://localhost:3000${displaySrc}`
+      : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}${displaySrc}`
     : null;
 
   return (
