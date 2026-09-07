@@ -16,7 +16,7 @@ import { NotificationsModule } from './notifications/notifications.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ServeStaticModule.forRoot({
-      rootPath: join(process.cwd(), 'uploads'),
+      rootPath: process.env.VERCEL ? '/tmp/uploads' : join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',
     }),
     PrismaModule,

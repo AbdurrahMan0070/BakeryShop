@@ -1,19 +1,33 @@
+import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from '../src/app.module';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import express, { Express, Request, Response } from 'express';
+import { mkdirSync } from 'fs';
+import { join } from 'path';
 
 const server: Express = express();
-let app: any;
+let isReady = false;
+let initPromise: Promise<void> | null = null;
 
 async function bootstrapServerless() {
-  if (!app) {
-    try {
-      app = await NestFactory.create(
+  if (isReady) return server;
+
+  if (!initPromise) {
+    initPromise = (async () => {
+      try {
+        const uploadsDir = process.env.VERCEL ? '/tmp/uploads' : join(process.cwd(), 'uploads');
+        mkdirSync(uploadsDir, { recursive: true });
+        mkdirSync(join(uploadsDir, 'receipts'), { recursive: true });
+      } catch (err) {
+        console.warn('Uploads directory creation note:', err);
+      }
+
+      const app = await NestFactory.create(
         AppModule,
         new ExpressAdapter(server),
-        { logger: ['error', 'warn', 'log'] }
+        { logger: ['error', 'warn', 'log'] },
       );
 
       app.enableCors({
@@ -32,12 +46,12 @@ async function bootstrapServerless() {
       );
 
       await app.init();
-      console.log('✅ NestJS app initialized for Vercel');
-    } catch (error) {
-      console.error('❌ Failed to initialize NestJS app:', error);
-      throw error;
-    }
+      isReady = true;
+      console.log('✅ NestJS app initialized for Vercel Serverless');
+    })();
   }
+
+  await initPromise;
   return server;
 }
 
@@ -46,10 +60,11 @@ export default async function handler(req: Request, res: Response) {
     const expressServer = await bootstrapServerless();
     expressServer(req, res);
   } catch (error) {
-    console.error('Handler error:', error);
-    res.status(500).json({ 
+    console.error('❌ Vercel Serverless Handler error:', error);
+    res.status(500).json({
       error: 'Internal Server Error',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 }
+

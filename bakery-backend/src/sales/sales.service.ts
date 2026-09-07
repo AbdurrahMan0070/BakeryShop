@@ -135,7 +135,9 @@ export class SalesService {
       // use defaults
     }
 
-    const receiptsDir = join(process.cwd(), 'uploads', 'receipts');
+    const receiptsDir = process.env.VERCEL
+      ? '/tmp/uploads/receipts'
+      : join(process.cwd(), 'uploads', 'receipts');
     mkdirSync(receiptsDir, { recursive: true });
 
     const filename = `receipt-${sale.id}-${Date.now()}.pdf`;

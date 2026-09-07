@@ -16,6 +16,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
+import { mkdirSync } from 'fs';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -63,7 +64,13 @@ export class ProductsController {
   @UseInterceptors(
     FileInterceptor('image', {
       storage: diskStorage({
-        destination: join(process.cwd(), 'uploads'),
+        destination: (_req, _file, cb) => {
+          const uploadsDir = process.env.VERCEL ? '/tmp/uploads' : join(process.cwd(), 'uploads');
+          try {
+            mkdirSync(uploadsDir, { recursive: true });
+          } catch (_) {}
+          cb(null, uploadsDir);
+        },
         filename: (_req, file, cb) => {
           const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
           cb(null, `product-${uniqueSuffix}${extname(file.originalname)}`);
