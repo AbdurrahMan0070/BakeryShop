@@ -54,25 +54,18 @@ export class SalesController {
   ) {
     const sale = await this.salesService.findOne(id);
 
-    if (!sale.pdfUrl) {
-      throw new NotFoundException('Receipt not available for this sale');
+    if (!sale) {
+      throw new NotFoundException(`Sale #${id} not found`);
     }
 
-    // pdfUrl is like /uploads/receipts/receipt-1-xxx.pdf
-    const relativePath = sale.pdfUrl.replace(/^\//, '');
-    const vercelPath = join('/tmp', relativePath);
-    const localPath = join(process.cwd(), relativePath);
-    const filePath = existsSync(vercelPath) ? vercelPath : localPath;
-
-    if (!existsSync(filePath)) {
-      throw new NotFoundException('Receipt file not found');
-    }
+    const buffer = await this.salesService.generateReceiptBuffer(sale);
 
     res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Length', buffer.length);
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="receipt-${String(id).padStart(4, '0')}.pdf"`,
     );
-    res.sendFile(filePath);
+    res.end(buffer);
   }
 }

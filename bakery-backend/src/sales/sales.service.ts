@@ -9,7 +9,7 @@ import { SettingsService } from '../settings/settings.service';
 import * as PDFDocumentLib from 'pdfkit';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const PDFDocument = (PDFDocumentLib as any).default ?? PDFDocumentLib;
-import { createWriteStream, mkdirSync } from 'fs';
+import { createWriteStream, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 @Injectable()
@@ -117,8 +117,8 @@ export class SalesService {
 
   // ── PDF Receipt Generation ──────────────────────────────────────────────────
 
-  private async generateReceipt(sale: any): Promise<string> {
-    let storeName = 'My Store';
+  async generateReceiptBuffer(sale: any): Promise<Buffer> {
+    let storeName = 'Arzoo Bakery';
     let storeAddress = '';
     let storePhone = '';
     let receiptFooter = 'Thank you for visiting!';
@@ -135,23 +135,24 @@ export class SalesService {
       // use defaults
     }
 
-    const receiptsDir = process.env.VERCEL
-      ? '/tmp/uploads/receipts'
-      : join(process.cwd(), 'uploads', 'receipts');
-    mkdirSync(receiptsDir, { recursive: true });
-
-    const filename = `receipt-${sale.id}-${Date.now()}.pdf`;
-    const filepath = join(receiptsDir, filename);
-
-    await new Promise<void>((resolve, reject) => {
-      // 80mm thermal receipt = ~227pt wide
+    return new Promise<Buffer>((resolve, reject) => {
       const pageWidth = 227;
       const margin = 14;
-      const CW = pageWidth - margin * 2; // content width = 199
+      const CW = pageWidth - margin * 2;
 
-      const doc = new PDFDocument({ size: [pageWidth, 800], margin, autoFirstPage: true });
-      const stream = createWriteStream(filepath);
-      doc.pipe(stream);
+      const itemsCount = sale.items?.length || 1;
+      const pageHeight = Math.max(450, 280 + itemsCount * 26);
+
+      const doc = new PDFDocument({
+        size: [pageWidth, pageHeight],
+        margin,
+        autoFirstPage: true,
+      });
+
+      const buffers: Buffer[] = [];
+      doc.on('data', (chunk: Buffer) => buffers.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(buffers)));
+      doc.on('error', (err: Error) => reject(err));
 
       const accent = '#b45309'; // amber-700
       const dark   = '#111827'; // gray-900
@@ -160,13 +161,12 @@ export class SalesService {
 
       const x = margin;
 
-      // ── Helper ──
       const hr = (color = light, w = 0.5) => {
         doc.moveTo(x, doc.y).lineTo(x + CW, doc.y).strokeColor(color).lineWidth(w).stroke();
       };
 
-      // ── Store Header ────────────────────────────────────────────────────
-      doc.fontSize(16).font('Helvetica-Bold').fillColor(accent)
+      // Store Header
+      doc.fontSize(15).font('Helvetica-Bold').fillColor(accent)
         .text(storeName, x, margin, { width: CW, align: 'center' });
 
       if (storeAddress) {
@@ -182,9 +182,9 @@ export class SalesService {
       hr('#9ca3af', 0.5);
       doc.moveDown(0.45);
 
-      // ── Bill Meta ───────────────────────────────────────────────────────
+      // Bill Meta
       const billNo = '#' + String(sale.id).padStart(4, '0');
-      const saleDate = new Date(sale.createdAt).toLocaleString('en-IN', {
+      const saleDate = new Date(sale.createdAt || Date.now()).toLocaleString('en-IN', {
         day: '2-digit', month: 'short', year: 'numeric',
         hour: '2-digit', minute: '2-digit',
       });
@@ -192,20 +192,17 @@ export class SalesService {
       const metaY = doc.y;
       doc.fontSize(8).font('Helvetica').fillColor(dark);
       doc.text('Bill No: ' + billNo, x, metaY, { width: CW * 0.5 });
-      doc.text('Payment: ' + sale.paymentMethod.toUpperCase(), x, doc.y, { width: CW * 0.5 });
+      doc.text('Payment: ' + (sale.paymentMethod || 'CASH').toUpperCase(), x, doc.y, { width: CW * 0.5 });
       if (sale.customerPhone) {
         doc.text('Customer: ' + sale.customerPhone, x, doc.y, { width: CW * 0.6 });
       }
-      // Date right-aligned alongside meta
       doc.text('Date: ' + saleDate, x, metaY, { width: CW, align: 'right' });
 
       doc.moveDown(0.5);
       hr();
       doc.moveDown(0.4);
 
-      // ── Column Positions ────────────────────────────────────────────────
-      // ITEM | QTY | RATE | AMT
-      // 42%  | 10% | 22%  | 26%
+      // Column Positions
       const cItem  = x;
       const cQty   = x + Math.round(CW * 0.43);
       const cRate  = x + Math.round(CW * 0.55);
@@ -215,7 +212,6 @@ export class SalesService {
       const wRate  = Math.round(CW * 0.20);
       const wAmt   = Math.round(CW * 0.23);
 
-      // Header
       const hY = doc.y;
       doc.fontSize(7).font('Helvetica-Bold').fillColor(muted);
       doc.text('ITEM',   cItem, hY, { width: wItem });
@@ -227,26 +223,21 @@ export class SalesService {
       hr();
       doc.moveDown(0.35);
 
-      // ── Item Rows ───────────────────────────────────────────────────────
       doc.font('Helvetica').fillColor(dark);
 
-      for (const item of sale.items) {
+      for (const item of (sale.items || [])) {
         const rY = doc.y;
+        const itemName = item.product?.name || 'Bakery Item';
 
-        // name may wrap — draw first
-        doc.fontSize(8).text(item.product.name, cItem, rY, { width: wItem - 2, lineGap: 1 });
+        doc.fontSize(8).text(itemName, cItem, rY, { width: wItem - 2, lineGap: 1 });
         const rH = Math.max(doc.y - rY, 10);
-        const mY = rY + (rH - 9) / 2; // vertical center for other cols
+        const mY = rY + (rH - 9) / 2;
 
         doc.fontSize(8);
-        doc.text(String(item.quantity),
-          cQty, mY, { width: wQty, align: 'center' });
-        doc.text('Rs.' + Number(item.unitPrice).toFixed(2),
-          cRate, mY, { width: wRate, align: 'right' });
-        doc.text('Rs.' + Number(item.subtotal).toFixed(2),
-          cAmt, mY, { width: wAmt, align: 'right' });
+        doc.text(String(item.quantity), cQty, mY, { width: wQty, align: 'center' });
+        doc.text('Rs.' + Number(item.unitPrice).toFixed(2), cRate, mY, { width: wRate, align: 'right' });
+        doc.text('Rs.' + Number(item.subtotal).toFixed(2), cAmt, mY, { width: wAmt, align: 'right' });
 
-        // thin row separator
         doc.moveTo(x, doc.y + 2).lineTo(x + CW, doc.y + 2)
           .strokeColor('#f3f4f6').lineWidth(0.4).stroke();
         doc.moveDown(0.3);
@@ -256,15 +247,13 @@ export class SalesService {
       hr(dark, 0.8);
       doc.moveDown(0.45);
 
-      // ── Total ───────────────────────────────────────────────────────────
       const tY = doc.y;
       doc.fontSize(11).font('Helvetica-Bold').fillColor(dark)
         .text('TOTAL', x, tY, { width: CW * 0.5 });
       doc.fillColor(accent)
         .text('Rs.' + Number(sale.total).toFixed(2), x, tY, { width: CW, align: 'right' });
 
-      // ── Items count ─────────────────────────────────────────────────────
-      const itemCount = sale.items.reduce((s: number, i: any) => s + i.quantity, 0);
+      const itemCount = (sale.items || []).reduce((s: number, i: any) => s + i.quantity, 0);
       doc.fontSize(7).font('Helvetica').fillColor(muted)
         .text('Items: ' + itemCount, x, doc.y + 4, { width: CW, align: 'right' });
 
@@ -272,15 +261,27 @@ export class SalesService {
       hr('#e5e7eb', 0.5);
       doc.moveDown(0.6);
 
-      // ── Footer ──────────────────────────────────────────────────────────
       doc.fontSize(7.5).font('Helvetica').fillColor(muted)
         .text(receiptFooter, x, doc.y, { width: CW, align: 'center' });
 
       doc.end();
-      stream.on('finish', resolve);
-      stream.on('error', reject);
     });
+  }
 
-    return `/uploads/receipts/${filename}`;
+  private async generateReceipt(sale: any): Promise<string> {
+    try {
+      const buffer = await this.generateReceiptBuffer(sale);
+      const receiptsDir = process.env.VERCEL
+        ? '/tmp/uploads/receipts'
+        : join(process.cwd(), 'uploads', 'receipts');
+      mkdirSync(receiptsDir, { recursive: true });
+
+      const filename = `receipt-${sale.id}-${Date.now()}.pdf`;
+      const filepath = join(receiptsDir, filename);
+      writeFileSync(filepath, buffer);
+      return `/uploads/receipts/${filename}`;
+    } catch (_err) {
+      return `/sales/${sale.id}/receipt`;
+    }
   }
 }

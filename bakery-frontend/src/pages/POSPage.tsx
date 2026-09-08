@@ -21,7 +21,6 @@ import { salesApi } from '@/api/sales';
 import { settingsApi } from '@/api/settings';
 import { useCart } from '@/store/CartContext';
 import { useToast } from '@/components/ui/Toast';
-import { useAuth } from '@/store/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
@@ -49,7 +48,6 @@ export function POSPage() {
 
   const { items, addItem, removeItem, updateQuantity, clearCart, total } = useCart();
   const { success, error } = useToast();
-  const { token } = useAuth();
   const queryClient = useQueryClient();
   const [lastSaleId, setLastSaleId] = useState<number | null>(null);
   const [receiptDownloading, setReceiptDownloading] = useState(false);
@@ -62,17 +60,17 @@ export function POSPage() {
   const downloadReceipt = async (saleId: number) => {
     setReceiptDownloading(true);
     try {
-      const res = await fetch(salesApi.getReceiptUrl(saleId), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Download failed');
-      const blob = await res.blob();
+      const blob = await salesApi.downloadReceiptBlob(saleId);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `receipt-${String(saleId).padStart(4, '0')}.pdf`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
+    } catch (_err) {
+      error('Download failed', 'Unable to download receipt PDF');
     } finally {
       setReceiptDownloading(false);
     }

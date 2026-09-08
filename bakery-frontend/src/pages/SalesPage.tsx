@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { salesApi } from '@/api/sales';
 import { settingsApi } from '@/api/settings';
-import { useAuth } from '@/store/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
@@ -39,7 +38,6 @@ const paymentColors: Record<PaymentMethod, string> = {
 };
 
 export function SalesPage() {
-  const { token } = useAuth();
   const [page, setPage] = useState(1);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [fromDate, setFromDate] = useState('');
@@ -53,20 +51,19 @@ export function SalesPage() {
   });
 
   const downloadReceipt = async (sale: Sale) => {
-    if (!sale.pdfUrl) return;
     setDownloading(true);
     try {
-      const res = await fetch(salesApi.getReceiptUrl(sale.id), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Download failed');
-      const blob = await res.blob();
+      const blob = await salesApi.downloadReceiptBlob(sale.id);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `receipt-${String(sale.id).padStart(4, '0')}.pdf`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
+    } catch (_err) {
+      console.error('Receipt download failed', _err);
     } finally {
       setDownloading(false);
     }
@@ -338,16 +335,14 @@ export function SalesPage() {
             </div>
 
             {/* Download Receipt */}
-            {selectedSale.pdfUrl && (
-              <button
-                onClick={() => downloadReceipt(selectedSale)}
-                disabled={downloading}
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-[hsl(var(--primary)/0.08)] hover:bg-[hsl(var(--primary)/0.15)] text-[hsl(var(--primary))] text-sm font-medium transition-colors border border-[hsl(var(--primary)/0.2)] disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <Download className="w-4 h-4" />
-                {downloading ? 'Downloading…' : 'Download Receipt (PDF)'}
-              </button>
-            )}
+            <button
+              onClick={() => downloadReceipt(selectedSale)}
+              disabled={downloading}
+              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-[hsl(var(--primary)/0.08)] hover:bg-[hsl(var(--primary)/0.15)] text-[hsl(var(--primary))] text-sm font-medium transition-colors border border-[hsl(var(--primary)/0.2)] disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <Download className="w-4 h-4" />
+              {downloading ? 'Downloading…' : 'Download Receipt (PDF)'}
+            </button>
           </div>
         )}
       </Modal>
