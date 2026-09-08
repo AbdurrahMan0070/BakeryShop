@@ -35,7 +35,11 @@ export function getWhatsAppReceiptUrl(
 ): { url: string; phone: string; hasPhone: boolean } {
   const rawPhone = overridePhone || params.customerPhone || '';
   const phone = formatWhatsAppPhone(rawPhone);
-  const store = params.storeName || 'Arzoo Bakery';
+  const rawStore = params.storeName?.trim();
+  const store = (!rawStore || rawStore.toLowerCase() === 'my store' || rawStore.toLowerCase() === 'my bakery')
+    ? 'Arzoo Bakery'
+    : rawStore;
+
   const receiptId = String(params.saleId).padStart(4, '0');
   const dateStr = params.createdAt
     ? new Date(params.createdAt).toLocaleString('en-IN', {
@@ -64,22 +68,23 @@ export function getWhatsAppReceiptUrl(
 
   const message = `🌸 *${store.toUpperCase()}* 🥐
 _Freshly baked with care & love_ ✨
-═══════════════════════
+----------------------------------------
 🧾 *Bill No:* #${receiptId}
 📅 *Date:* ${dateStr}
 💳 *Payment:* ${params.paymentMethod.toUpperCase()} 😊
-═══════════════════════
+----------------------------------------
 🛒 *YOUR ORDER:*
 ${itemsList || '• Bakery Selection'}
-═══════════════════════
+----------------------------------------
 💰 *TOTAL PAID:* ${formatCurrency(numTotal)}
-═══════════════════════
+----------------------------------------
 🌸 Thank you for choosing ${store}!
 We hope you enjoy every bite! Have a wonderful day ahead! 😊🍰✨`;
 
+  const baseUrl = 'https://api.whatsapp.com/send/';
   const url = phone
-    ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
-    : `https://wa.me/?text=${encodeURIComponent(message)}`;
+    ? `${baseUrl}?phone=${phone}&text=${encodeURIComponent(message)}`
+    : `${baseUrl}?text=${encodeURIComponent(message)}`;
 
   return { url, phone, hasPhone: Boolean(phone) };
 }
