@@ -178,9 +178,9 @@ export class SalesService {
           .text('Ph: ' + storePhone, x, doc.y + 1, { width: CW, align: 'center' });
       }
 
-      doc.moveDown(0.5);
+      doc.moveDown(0.4);
       hr('#9ca3af', 0.5);
-      doc.moveDown(0.45);
+      doc.y += 6;
 
       // Bill Meta
       const billNo = '#' + String(sale.id).padStart(4, '0');
@@ -189,18 +189,22 @@ export class SalesService {
         hour: '2-digit', minute: '2-digit',
       });
 
-      const metaY = doc.y;
+      const startMetaY = doc.y;
       doc.fontSize(8).font('Helvetica').fillColor(dark);
-      doc.text('Bill No: ' + billNo, x, metaY, { width: CW * 0.5 });
-      doc.text('Payment: ' + (sale.paymentMethod || 'CASH').toUpperCase(), x, doc.y, { width: CW * 0.5 });
+      doc.text('Bill No: ' + billNo, x, startMetaY, { width: CW * 0.48 });
+      doc.text('Payment: ' + (sale.paymentMethod || 'CASH').toUpperCase(), x, doc.y, { width: CW * 0.48 });
       if (sale.customerPhone) {
-        doc.text('Customer: ' + sale.customerPhone, x, doc.y, { width: CW * 0.6 });
+        doc.text('Customer: ' + sale.customerPhone, x, doc.y, { width: CW * 0.48 });
       }
-      doc.text('Date: ' + saleDate, x, metaY, { width: CW, align: 'right' });
+      const leftBottomY = doc.y;
 
-      doc.moveDown(0.5);
+      doc.text('Date: ' + saleDate, x + CW * 0.4, startMetaY, { width: CW * 0.6, align: 'right' });
+      const rightBottomY = doc.y;
+
+      // Ensure doc.y is strictly below both columns
+      doc.y = Math.max(leftBottomY, rightBottomY) + 6;
       hr();
-      doc.moveDown(0.4);
+      doc.y += 6;
 
       // Column Positions
       const cItem  = x;
@@ -213,15 +217,15 @@ export class SalesService {
       const wAmt   = Math.round(CW * 0.23);
 
       const hY = doc.y;
-      doc.fontSize(7).font('Helvetica-Bold').fillColor(muted);
+      doc.fontSize(7.5).font('Helvetica-Bold').fillColor(muted);
       doc.text('ITEM',   cItem, hY, { width: wItem });
       doc.text('QTY',    cQty,  hY, { width: wQty,  align: 'center' });
       doc.text('RATE',   cRate, hY, { width: wRate, align: 'right' });
       doc.text('AMT',    cAmt,  hY, { width: wAmt,  align: 'right' });
 
-      doc.moveDown(0.35);
+      doc.y = hY + 11;
       hr();
-      doc.moveDown(0.35);
+      doc.y += 5;
 
       doc.font('Helvetica').fillColor(dark);
 
@@ -230,36 +234,37 @@ export class SalesService {
         const itemName = item.product?.name || 'Bakery Item';
 
         doc.fontSize(8).text(itemName, cItem, rY, { width: wItem - 2, lineGap: 1 });
-        const rH = Math.max(doc.y - rY, 10);
-        const mY = rY + (rH - 9) / 2;
+        const rowH = Math.max(doc.y - rY, 12);
+        const mY = rY + (rowH - 9) / 2;
 
-        doc.fontSize(8);
         doc.text(String(item.quantity), cQty, mY, { width: wQty, align: 'center' });
         doc.text('Rs.' + Number(item.unitPrice).toFixed(2), cRate, mY, { width: wRate, align: 'right' });
         doc.text('Rs.' + Number(item.subtotal).toFixed(2), cAmt, mY, { width: wAmt, align: 'right' });
 
-        doc.moveTo(x, doc.y + 2).lineTo(x + CW, doc.y + 2)
+        doc.y = rY + rowH + 2;
+        doc.moveTo(x, doc.y).lineTo(x + CW, doc.y)
           .strokeColor('#f3f4f6').lineWidth(0.4).stroke();
-        doc.moveDown(0.3);
+        doc.y += 4;
       }
 
-      doc.moveDown(0.2);
+      doc.y += 4;
       hr(dark, 0.8);
-      doc.moveDown(0.45);
+      doc.y += 6;
 
       const tY = doc.y;
       doc.fontSize(11).font('Helvetica-Bold').fillColor(dark)
-        .text('TOTAL', x, tY, { width: CW * 0.5 });
+        .text('TOTAL', x, tY, { width: CW * 0.4 });
       doc.fillColor(accent)
         .text('Rs.' + Number(sale.total).toFixed(2), x, tY, { width: CW, align: 'right' });
 
+      doc.y = tY + 14;
       const itemCount = (sale.items || []).reduce((s: number, i: any) => s + i.quantity, 0);
-      doc.fontSize(7).font('Helvetica').fillColor(muted)
-        .text('Items: ' + itemCount, x, doc.y + 4, { width: CW, align: 'right' });
+      doc.fontSize(7.5).font('Helvetica').fillColor(muted)
+        .text('Items: ' + itemCount, x, doc.y, { width: CW, align: 'right' });
 
-      doc.moveDown(0.9);
+      doc.y += 12;
       hr('#e5e7eb', 0.5);
-      doc.moveDown(0.6);
+      doc.y += 8;
 
       doc.fontSize(7.5).font('Helvetica').fillColor(muted)
         .text(receiptFooter, x, doc.y, { width: CW, align: 'center' });
