@@ -1,7 +1,18 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Eye, Receipt, Package, CreditCard, Smartphone, Banknote, Download } from 'lucide-react';
+import {
+  Eye,
+  Receipt,
+  Package,
+  CreditCard,
+  Smartphone,
+  Banknote,
+  Download,
+  MessageCircle,
+  Send,
+} from 'lucide-react';
 import { salesApi } from '@/api/sales';
+import { settingsApi } from '@/api/settings';
 import { useAuth } from '@/store/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -12,6 +23,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Spinner } from '@/components/ui/Spinner';
 import { formatCurrency } from '@/utils/formatCurrency';
 import { formatDateTime, formatRelative } from '@/utils/formatDate';
+import { getWhatsAppReceiptUrl } from '@/utils/whatsapp';
 import type { Sale, PaymentMethod } from '@/types';
 
 const paymentIcons: Record<PaymentMethod, React.ElementType> = {
@@ -33,6 +45,12 @@ export function SalesPage() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [downloading, setDownloading] = useState(false);
+  const [whatsappPhoneInput, setWhatsappPhoneInput] = useState('');
+
+  const { data: storeSettings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: settingsApi.get,
+  });
 
   const downloadReceipt = async (sale: Sale) => {
     if (!sale.pdfUrl) return;
@@ -176,7 +194,10 @@ export function SalesPage() {
                           variant="ghost"
                           size="sm"
                           className="opacity-0 group-hover:opacity-100 transition-opacity w-8 h-8 p-0 rounded-lg"
-                          onClick={() => setSelectedSale(sale)}
+                          onClick={() => {
+                            setSelectedSale(sale);
+                            setWhatsappPhoneInput(sale.customerPhone || '');
+                          }}
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </Button>
@@ -275,6 +296,45 @@ export function SalesPage() {
               <span className="text-xl font-bold font-display text-[hsl(var(--primary))]">
                 {formatCurrency(selectedSale.total)}
               </span>
+            </div>
+
+            {/* WhatsApp Digital Receipt Card */}
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 flex flex-col gap-2.5">
+              <div className="flex items-center gap-2 font-semibold text-xs text-emerald-700 dark:text-emerald-400">
+                <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                <span>Send Receipt on WhatsApp</span>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  id="whatsapp-sale-phone"
+                  placeholder="Customer Phone (e.g. 9876543210)"
+                  value={whatsappPhoneInput}
+                  onChange={(e) => setWhatsappPhoneInput(e.target.value)}
+                  className="flex-1 text-xs h-9"
+                />
+                <Button
+                  id="send-whatsapp-sale-btn"
+                  onClick={() => {
+                    const { url } = getWhatsAppReceiptUrl(
+                      {
+                        saleId: selectedSale.id,
+                        total: selectedSale.total,
+                        paymentMethod: selectedSale.paymentMethod,
+                        customerPhone: selectedSale.customerPhone,
+                        items: selectedSale.items,
+                        createdAt: selectedSale.createdAt,
+                        storeName: storeSettings?.storeName || 'Arzoo Bakery',
+                      },
+                      whatsappPhoneInput,
+                    );
+                    window.open(url, '_blank');
+                  }}
+                  className="bg-[#25D366] hover:bg-[#20bd5a] text-white shrink-0 font-medium text-xs h-9 flex items-center gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  WhatsApp
+                </Button>
+              </div>
             </div>
 
             {/* Download Receipt */}

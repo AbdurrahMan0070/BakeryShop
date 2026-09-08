@@ -60,7 +60,9 @@ export class SalesController {
 
     // pdfUrl is like /uploads/receipts/receipt-1-xxx.pdf
     const relativePath = sale.pdfUrl.replace(/^\//, '');
-    const filePath = join(process.cwd(), relativePath);
+    const vercelPath = join('/tmp', relativePath);
+    const localPath = join(process.cwd(), relativePath);
+    const filePath = existsSync(vercelPath) ? vercelPath : localPath;
 
     if (!existsSync(filePath)) {
       throw new NotFoundException('Receipt file not found');

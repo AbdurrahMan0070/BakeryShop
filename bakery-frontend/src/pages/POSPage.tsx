@@ -11,10 +11,14 @@ import {
   Banknote,
   X,
   Download,
+  MessageCircle,
+  Send,
+  CheckCircle2,
 } from 'lucide-react';
 import { productsApi } from '@/api/products';
 import { categoriesApi } from '@/api/categories';
 import { salesApi } from '@/api/sales';
+import { settingsApi } from '@/api/settings';
 import { useCart } from '@/store/CartContext';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/store/AuthContext';
@@ -24,7 +28,8 @@ import { Modal } from '@/components/ui/Modal';
 import { Spinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { formatCurrency } from '@/utils/formatCurrency';
-import type { PaymentMethod, Product } from '@/types';
+import { getWhatsAppReceiptUrl } from '@/utils/whatsapp';
+import type { PaymentMethod, Product, Sale } from '@/types';
 
 const paymentMethods: { value: PaymentMethod; label: string; icon: React.ElementType }[] = [
   { value: 'cash', label: 'Cash', icon: Banknote },
@@ -38,6 +43,9 @@ export function POSPage() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [completedSale, setCompletedSale] = useState<Sale | null>(null);
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [whatsappPhoneInput, setWhatsappPhoneInput] = useState('');
 
   const { items, addItem, removeItem, updateQuantity, clearCart, total } = useCart();
   const { success, error } = useToast();
@@ -45,6 +53,11 @@ export function POSPage() {
   const queryClient = useQueryClient();
   const [lastSaleId, setLastSaleId] = useState<number | null>(null);
   const [receiptDownloading, setReceiptDownloading] = useState(false);
+
+  const { data: storeSettings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: settingsApi.get,
+  });
 
   const downloadReceipt = async (saleId: number) => {
     setReceiptDownloading(true);
@@ -63,6 +76,21 @@ export function POSPage() {
     } finally {
       setReceiptDownloading(false);
     }
+  };
+
+  const handleSendWhatsApp = (sale: Sale, phone?: string) => {
+    const { url } = getWhatsAppReceiptUrl(
+      {
+        saleId: sale.id,
+        total: sale.total,
+        paymentMethod: sale.paymentMethod,
+        items: sale.items,
+        createdAt: sale.createdAt,
+        storeName: storeSettings?.storeName || 'Arzoo Bakery',
+      },
+      phone,
+    );
+    window.open(url, '_blank');
   };
 
   const { data: products = [], isLoading } = useQuery({
@@ -86,12 +114,15 @@ export function POSPage() {
   const createSale = useMutation({
     mutationFn: salesApi.create,
     onSuccess: (sale) => {
+      setCompletedSale(sale);
+      setWhatsappPhoneInput(sale.customerPhone || customerPhone || '');
+      setSuccessModalOpen(true);
+      if (sale.pdfUrl) setLastSaleId(sale.id);
       clearCart();
       setCheckoutOpen(false);
       setCustomerPhone('');
       setPaymentMethod('cash');
-      success('Sale recorded!', `Total: ${formatCurrency(total)}`);
-      if (sale.pdfUrl) setLastSaleId(sale.id);
+      success('Sale recorded!', `Total: ${formatCurrency(sale.total)}`);
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
     },
@@ -259,15 +290,28 @@ export function POSPage() {
             Checkout
           </Button>
           {lastSaleId && (
-            <button
-              id="download-last-receipt-btn"
-              onClick={() => downloadReceipt(lastSaleId)}
-              disabled={receiptDownloading}
-              className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-xs font-medium text-[hsl(var(--primary))] bg-[hsl(var(--primary)/0.07)] hover:bg-[hsl(var(--primary)/0.14)] border border-[hsl(var(--primary)/0.2)] transition-colors disabled:opacity-60"
-            >
-              <Download className="w-3.5 h-3.5" />
-              {receiptDownloading ? 'Downloading…' : 'Download Last Receipt'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                id="download-last-receipt-btn"
+                onClick={() => downloadReceipt(lastSaleId)}
+                disabled={receiptDownloading}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-[hsl(var(--primary))] bg-[hsl(var(--primary)/0.07)] hover:bg-[hsl(var(--primary)/0.14)] border border-[hsl(var(--primary)/0.2)] transition-colors disabled:opacity-60"
+              >
+                <Download className="w-3.5 h-3.5" />
+                {receiptDownloading ? 'Downloading…' : 'Download PDF'}
+              </button>
+              {completedSale && (
+                <button
+                  id="whatsapp-last-receipt-btn"
+                  onClick={() => setSuccessModalOpen(true)}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-white bg-[#25D366] hover:bg-[#20bd5a] transition-colors"
+                  title="Share Last Receipt on WhatsApp"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  WhatsApp
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -344,6 +388,80 @@ export function POSPage() {
           </Button>
         </div>
       </Modal>
+
+      {/* Post-sale Receipt & WhatsApp Modal */}
+      {completedSale && (
+        <Modal
+          isOpen={successModalOpen}
+          onClose={() => setSuccessModalOpen(false)}
+          title="Sale Completed 🎉"
+          size="md"
+        >
+          <div className="flex flex-col gap-5">
+            <div className="flex items-center gap-3 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="w-8 h-8 shrink-0 text-emerald-500" />
+              <div>
+                <p className="font-semibold text-base text-[hsl(var(--foreground))]">
+                  Bill #{String(completedSale.id).padStart(4, '0')} Recorded
+                </p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                  Total: <span className="font-bold text-[hsl(var(--foreground))]">{formatCurrency(completedSale.total)}</span> • Paid via {completedSale.paymentMethod.toUpperCase()}
+                </p>
+              </div>
+            </div>
+
+            {/* WhatsApp Digital Receipt Card */}
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 flex flex-col gap-3">
+              <div className="flex items-center gap-2 font-semibold text-sm text-emerald-700 dark:text-emerald-400">
+                <MessageCircle className="w-5 h-5 text-[#25D366]" />
+                <span>Send Receipt on WhatsApp</span>
+              </div>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                Enter or confirm the customer's phone number below:
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  id="whatsapp-phone-input"
+                  placeholder="Customer Phone (e.g. 9876543210)"
+                  value={whatsappPhoneInput}
+                  onChange={(e) => setWhatsappPhoneInput(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  id="send-whatsapp-receipt-btn"
+                  onClick={() => handleSendWhatsApp(completedSale, whatsappPhoneInput)}
+                  className="bg-[#25D366] hover:bg-[#20bd5a] text-white shrink-0 font-medium flex items-center gap-1.5"
+                >
+                  <Send className="w-4 h-4" />
+                  Send
+                </Button>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              {completedSale.pdfUrl && (
+                <Button
+                  variant="outline"
+                  onClick={() => downloadReceipt(completedSale.id)}
+                  disabled={receiptDownloading}
+                  className="flex-1 flex items-center justify-center gap-2 text-xs"
+                >
+                  <Download className="w-4 h-4" />
+                  {receiptDownloading ? 'Downloading…' : 'Download PDF Bill'}
+                </Button>
+              )}
+              <Button
+                id="close-success-modal-btn"
+                onClick={() => setSuccessModalOpen(false)}
+                className="flex-1 text-xs"
+              >
+                Start Next Order
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
