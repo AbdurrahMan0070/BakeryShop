@@ -118,7 +118,7 @@ export function DashboardPage() {
           )}
           {stats.expiringCount > 0 && (
             <div
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 text-sm cursor-pointer hover:opacity-80 transition-opacity"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-500 dark:bg-red-950/40 border border-red-600 dark:border-red-800 text-white dark:text-red-300 text-sm font-medium cursor-pointer hover:bg-red-600 dark:hover:opacity-80 transition-all shadow-sm shadow-red-200 dark:shadow-none"
               onClick={() => navigate('/products')}
             >
               <Calendar className="w-4 h-4 shrink-0" />

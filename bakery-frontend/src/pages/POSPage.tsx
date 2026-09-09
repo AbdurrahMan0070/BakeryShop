@@ -193,7 +193,7 @@ export function POSPage() {
               description="Try a different search or category"
             />
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {filteredProducts.map((product) => (
                 <ProductCard
                   key={product.id}
@@ -474,43 +474,92 @@ function ProductCard({
   cartQty: number;
 }) {
   const outOfStock = product.stock === 0;
+  const lowStock = !outOfStock && product.stock <= 10;
 
   return (
     <button
       onClick={onAdd}
       disabled={outOfStock}
-      className="relative flex flex-col items-center gap-2 p-3 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] hover:border-[hsl(var(--primary))] hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed text-left group"
+      className={`
+        relative flex flex-col gap-0 rounded-2xl border bg-[hsl(var(--card))] text-left
+        transition-all duration-200 overflow-hidden group
+        disabled:opacity-50 disabled:cursor-not-allowed
+        hover:-translate-y-0.5
+        ${outOfStock
+          ? 'border-[hsl(var(--border))]'
+          : 'border-[hsl(var(--border))] hover:border-[hsl(var(--primary)/0.6)] hover:shadow-[0_4px_20px_hsl(var(--primary)/0.15)]'
+        }
+      `}
+      style={{
+        boxShadow: '0 1px 4px hsl(var(--foreground)/0.06), 0 0 0 0.5px hsl(var(--border)/0.8)',
+      }}
     >
-      {/* Image or placeholder */}
-      <div className="w-full aspect-square rounded-lg bg-[hsl(var(--muted))] flex items-center justify-center overflow-hidden">
+      {/* Image area — warm gradient backdrop in light mode */}
+      <div
+        className="w-full aspect-square flex items-center justify-center overflow-hidden relative"
+        style={{
+          background: 'linear-gradient(135deg, hsl(var(--muted)) 0%, hsl(30 25% 90%) 100%)',
+        }}
+      >
         {product.imageUrl ? (
           <img
             src={product.imageUrl}
             alt={product.name}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
-          <span className="text-3xl">🍞</span>
+          <span className="text-4xl drop-shadow-sm select-none group-hover:scale-110 transition-transform duration-200">
+            🍞
+          </span>
+        )}
+
+        {/* Cart quantity badge */}
+        {cartQty > 0 && (
+          <span className="absolute top-2 right-2 min-w-[1.4rem] h-[1.4rem] px-1 rounded-full bg-[hsl(var(--primary))] text-white text-[11px] font-bold flex items-center justify-center shadow-md">
+            {cartQty}
+          </span>
+        )}
+
+        {/* Out of stock overlay */}
+        {outOfStock && (
+          <div className="absolute inset-0 bg-[hsl(var(--background)/0.7)] flex items-center justify-center">
+            <span className="text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-950/60 px-2 py-0.5 rounded-full border border-red-200 dark:border-red-800">
+              OUT OF STOCK
+            </span>
+          </div>
         )}
       </div>
 
-      {/* Cart badge */}
-      {cartQty > 0 && (
-        <span className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[hsl(var(--primary))] text-white text-[10px] font-bold flex items-center justify-center">
-          {cartQty}
-        </span>
-      )}
+      {/* Info area */}
+      <div className="px-3 py-2.5 flex flex-col gap-1">
+        {/* Name row with tag icon */}
+        <div className="flex items-start gap-1.5 min-w-0">
+          <span className="text-sm mt-[1px] shrink-0" aria-hidden="true">🏷️</span>
+          <p className="text-[13px] font-semibold text-[hsl(var(--foreground))] truncate leading-snug">
+            {product.name}
+          </p>
+        </div>
 
-      <div className="w-full">
-        <p className="text-xs font-medium text-[hsl(var(--foreground))] truncate leading-tight">
-          {product.name}
-        </p>
-        <p className="text-sm font-bold text-[hsl(var(--primary))] mt-0.5">
+        {/* Price — prominent */}
+        <p className="text-[15px] font-extrabold text-[hsl(var(--primary))] tracking-tight leading-none font-display">
           {formatCurrency(product.sellingPrice)}
         </p>
-        <p className="text-[10px] text-[hsl(var(--muted-foreground))]">
-          {outOfStock ? <span className="text-red-500 font-medium">Out of stock</span> : `${product.stock} left`}
-        </p>
+
+        {/* Stock pill */}
+        {!outOfStock && (
+          <span
+            className={`
+              self-start mt-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold
+              ${lowStock
+                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'
+                : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
+              }
+            `}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${lowStock ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+            {product.stock} left
+          </span>
+        )}
       </div>
     </button>
   );
