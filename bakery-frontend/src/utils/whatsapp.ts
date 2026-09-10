@@ -67,19 +67,19 @@ export function getWhatsAppReceiptUrl(
     typeof params.total === 'string' ? parseFloat(params.total) : params.total;
 
   const message = `🌸 *${store.toUpperCase()}* 🥐
-_Freshly baked with care & love_ ✨
+_Freshly baked items with love & care_ ✨
 ----------------------------------------
 🧾 *Bill No:* #${receiptId}
 📅 *Date:* ${dateStr}
 💳 *Payment:* ${params.paymentMethod.toUpperCase()} 😊
 ----------------------------------------
-🛒 *YOUR ORDER:*
+🛒 *YOUR ITEMS:*
 ${itemsList || '• Bakery Selection'}
 ----------------------------------------
 💰 *TOTAL PAID:* ${formatCurrency(numTotal)}
 ----------------------------------------
-🌸 Thank you for choosing ${store}!
-We hope you enjoy every bite! Have a wonderful day ahead! 😊🍰✨`;
+🌸 Thank you for shopping in ${store}!
+We hope you enjoy every bite! Have a wonderful day! 😊🍰✨`;
 
   const baseUrl = 'https://api.whatsapp.com/send/';
   const url = phone
