@@ -19,6 +19,12 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
+    // Single-owner app: only allow registration if no user exists yet
+    const userCount = await this.prisma.user.count();
+    if (userCount > 0) {
+      throw new ConflictException('Registration is closed. This app is for the owner only.');
+    }
+
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
